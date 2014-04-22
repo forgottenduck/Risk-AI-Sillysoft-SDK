@@ -1,0 +1,53 @@
+<html><head><title>AI SDK Info</title></head>
+
+<body>
+<table width=600 align=center><TR><TD>
+<P align=center>
+<font size="+2">AI SDK Info</font>
+<P>
+This SDK contains everything you need to write your own computer AI for Lux and Vox. The SDK uses the Java programming language and is made up of a series of public API as well as example source code implementations.
+<P>
+<B>The Agent Interfaces</b><BR>
+Each AI is a class that implements the <a href="javadocs/com/sillysoft/lux/agent/LuxAgent.html">LuxAgent</a> (or <a href="javadocs/com/sillysoft/vox/agent/VoxAgent.html">VoxAgent</a> for Castle Vox) interface. The interface comes with lots of comments, and should probably be the first thing you examine.
+<P>
+If you are unfamiliar with java interfaces, it is basically just a list of function prototypes. To write a class that implements the interface, you just fill in the code for all of the prototypes.
+<P>
+<B>The Game API</b><BR>
+Other then the Agent interface, agents must interact with the game. This is done using the public game API. Have a look at the <a href="Lux_AI_javadocs.html">Lux API javadocs</a> or <a href="javadocs/index.html?com/sillysoft/vox/package-summary.html">Vox API javadocs</a> to see what is available.
+<P>
+<B>Examples</b><BR>
+The source code of many example agents are included, inside the src/com/sillysoft/vox/agent directory. The code is licensed for non-profit use.
+<P>
+<B>To Compile</b><BR>
+Method #1: Use the included apache ant build.xml file to build using ant.<br>
+Method #2: Copy the java files inside src into your preferred IDE.<br>
+<P>
+<B>Installing</b><BR>
+Once you have finished writing an agent, place your compiled .class file inside the Agents folder inside the game's <a href="http://sillysoft.net/wiki/?SupportFolder">support folder</a>. Your agent should appear in the agent select-boxes when the game is next run. If you use ant to compile then modify the build.xml file to specify your support folder and you can automatically move the newly compiled file into place.
+<P>
+<b>Debugging</b><br>
+Instructions for setting up some IDE environments has been <a href="http://sillysoft.net/wiki/?real%20debugging">collected on the wiki here</a>.
+<P>
+<b>Multiple Classes</b><br>
+To get a multiple-class AI to load: put the main class that implements the Agent interface directly in the Agents folder, then also create a package-folder hierarchy inside that same folder and put all secondary classes into their proper package folder.
+<P>&nbsp;<br>
+<B>Random Notes:</b><BR>
+Find other BotMasters and discussion in the online <a href="http://sillysoft.net/forums/viewforum.php?f=9"><b>Robot House Forum</b></a>.
+<P>
+All method calls into AIs are inside try/catch statements. This means that errors within agents should not cause the game to crash. Whenever an exception is caught it is printed to standard out including a stacktrace.
+<P>
+As well, a message is printed to standard out whenever an agent sends an improper command. (eg. it tries to attack a country that it owns)
+<P>
+(Under MacOS X, standard out of all the running applications can be seen with the Console application, located in /Applications/Utilities/ 
+<P>
+For testing purposes it is sometimes useful to run game after game after game. Start Lux from the command line and pass it the -superfast option to get a mode that uses less graphics. You'll still have to start a game and turn on the Autoplay feature in the Preferences.
+<P>&nbsp;<P>
+Thank you very much for downloading this SDK. If you have any questions/comments please let me know.
+<P>&nbsp;<P>
+Your friend in world domination,<BR>
+Dustin Quasar Sacks<BR>
+<a href="mailto:dustin@sillysoft.net">dustin@sillysoft.net</a>
+
+</td></tr></table>
+
+</body></html>
