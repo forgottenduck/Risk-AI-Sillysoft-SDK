@@ -25,18 +25,21 @@ import java.util.ArrayList;
 public class Learner extends SmartAgentBase {
 	// values used in tactics analysis, adjusted via learning weights
 		float recklessness;
-		Float minRecklessness, maxRecklessness;
-		float recklessFortifyThreshold;
-		float recklessCardThreshold;
+		float minRecklessness, maxRecklessness;
 	// fine-tuning weights that can be adjusted via the rule set
-		Rule[] deployRules, attackRules, fortifyRules;
-		float[] deployWeights, attackWeights, fortifyWeights;
+		Rule[] deployRules = new Rule[280];
+		Rule[] attackRules = new Rule[280];
+		Rule[] fortifyRules = new Rule[280];
+		float[] deployWeights = new float[14];
+		float[] attackWeights = new float[14];
+		float[] fortifyWeights = new float[14];
 		// A filename for the log
 		private String fileName;
 		private String rulesPath = Board.getAgentPath() + "rules.txt";
 		private String reckPath = Board.getAgentPath() + "reck.txt";
 		private float explorationThreshold = 0.15f; // probability to explore instead of exploit (0.0 - 1.0 range)
-		private String[] lettersArray = {"A","B","C","D","E","F","G","H","I","J","K","L","M"};
+		private String[] lettersArray = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N"};
+		private Boolean didSetup = false;
 
 	public float version() {
 		return 1.0f;
@@ -55,12 +58,17 @@ public class Learner extends SmartAgentBase {
 	@Override
 	public void placeInitialArmies( int numberOfArmies )
 	{
-		setup();
+		if (didSetup == false) {
+			setup();
+			didSetup = true;
+		}
 		placeArmies(numberOfArmies);
 	}
 	
 	public void placeArmies( int numberOfArmies )
 	{
+		makeLogEntry("------DEPLOY PHASE------\n");
+
 		Country mostValuableCountry = null;
 		float largestStrategicValue=-100000;
 		// Use a PlayerIterator to cycle through all the countries that we own.
@@ -73,6 +81,7 @@ public class Learner extends SmartAgentBase {
 				float strategicValue=calculateStrategicValue(us, deployWeights);
 				
 				// If it's the best so far store it
+				//makeLogEntry("strategic value: " + strategicValue + ".\n");
 				if ( strategicValue > largestStrategicValue )
 				{
 					largestStrategicValue=strategicValue;
@@ -81,13 +90,13 @@ public class Learner extends SmartAgentBase {
 			}
 			board.placeArmies( 1, mostValuableCountry);
 			numberOfArmies--;
-			}
 		}
+	}
 	
 	public void cardsPhase( Card[] cards )
 	{
 		Card[] set=null;
-		if(cards.length==5 || recklessness>recklessCardThreshold)
+		if(cards.length==5 || recklessness>calculateRecklessCardThreshold(deployWeights))
 		{
 			set=Card.getBestSet(cards, ID, countries);
 		}
@@ -100,6 +109,7 @@ public class Learner extends SmartAgentBase {
 	
 public void attackPhase()
 {
+	makeLogEntry("------ATTACK PHASE------\n");
 //We choose a target and attack, then evaluate if we should continue attacking
 int countriesConquered=0;
 boolean stillAttacking=true;
@@ -162,6 +172,9 @@ return countries[cca].getArmies()-1;
 
 public void fortifyPhase()
 {	
+	
+	makeLogEntry("------FORTIFY PHASE------\n");
+
 	// Cycle through all the countries and find countries that we could move from:
 	// if country has no surrounding enemies, move armies toward country with most strategic value
 	// otherwise check recklessness to decide how to move armies
@@ -172,8 +185,16 @@ public void fortifyPhase()
 		Country us=armies.next();
 		int[] adjoiningCountries = us.getFriendlyAdjoiningCodeList();
 		Country fortifyTarget=null;
+		//If surrounded by friendly territories
+		//move in random direction
+		if(us.getAdjoiningList().length==adjoiningCountries.length)
+		{
+			Random rand=new Random();
+			int j=rand.nextInt(adjoiningCountries.length);
+			fortifyTarget=countries[adjoiningCountries[j]];
+		}
 		// if reckless, move to attack position
-		if(recklessness>recklessFortifyThreshold)
+		else if(recklessness>calculateRecklessFortifyThreshold(fortifyWeights))
 		{
 			float highestStrategicValue=calculateStrategicValue(us, fortifyWeights);
 			for(int i=0; i<adjoiningCountries.length;i++)
@@ -205,11 +226,31 @@ public void fortifyPhase()
 			board.fortifyArmies(us.getMoveableArmies(), us, fortifyTarget);
 		}
 	}
+	makeLogEntry("Turn "+board.getTurnCount()+" complete\n\n");
 }
 
 
 
 	// methods for machine learning aspects of the AI
+	
+
+	private float calculateRecklessCardThreshold(float[] weights)
+	{
+		float result=weights[12]*(maxRecklessness-minRecklessness);
+		return result;
+	}
+	
+	private float calculateRecklessAttackThreshold(float[] weights)
+	{
+		float result=weights[13]*(maxRecklessness-minRecklessness);
+		return result;
+	}
+	
+	private float calculateRecklessFortifyThreshold(float[] weights)
+	{
+		float result=weights[11]*(maxRecklessness-minRecklessness);
+		return result;
+	}
 	
 	
 	private float howDivided(Country country, float[] weights) 
@@ -224,10 +265,10 @@ public void fortifyPhase()
 				IDList.add(countryID);
 			}			
 		}
-		return IDList.size()*weights[2];
-	
+		float result=IDList.size()+1*weights[2];
+		//makeLogEntry("How Divided calculated as: " + result + "\n");
+		return result;
 	}
-	
 	
 	/**
 	 * This method weights the number of troops according to their distance, with closer troops being more relevant.
@@ -237,8 +278,14 @@ public void fortifyPhase()
 	 */
 	public float calculateWeightedTroopValue(Country srcCountry, Country destCountry, float weights[]) {
 		float result = 0;
-		int distance = BoardHelper.easyCostBetweenCountries(srcCountry,destCountry, countries).length;
-		result = weights[3] * destCountry.getArmies()/(float) distance;
+		Country[] path = BoardHelper.easyCostBetweenCountries(srcCountry,destCountry, countries);
+		if (path != null) {
+			int distance = path.length;
+			result = weights[3] * destCountry.getArmies()/(float) distance;
+		} else {
+			result = 0;
+		}
+		//makeLogEntry("Weighted troop value for "+srcCountry.getName()+" to "+destCountry.getName()+" calculated as: "+result);
 		return result;
 	}
 	/**
@@ -252,7 +299,9 @@ public void fortifyPhase()
 	public float calculateStrategicValue(Country country, float[] weights) {
 		float result = 0;
 		float advantage = calculateAdvantage(ID, weights);
+		makeLogEntry("Advantage for strat value calculated as: " + advantage + "\n");
 		result = (calculateRecklessness(advantage)*calculateImportance(country, weights))/(calculateVulnerability(country, weights)/calculateRecklessness(advantage));
+		//makeLogEntry("Strategic value calculated as: " + result + "\n");
 		return result;
 	}
 	
@@ -278,11 +327,11 @@ public void fortifyPhase()
 					friendlyTroops += calculateWeightedTroopValue(country, otherCountry,weights);
 				}
 			}
-			enemyTroops += BoardHelper.getEnemyArmiesInContinent(ID, i, countries);
 		}
 		
 		float divided = howDivided(country,weights);
-		result = (enemyTroops/divided) - friendlyTroops;
+		result = (enemyTroops/divided) - friendlyTroops + 0.00001f;
+		//makeLogEntry("Vulnerability calculated as: " + result + "\n");
 		return result;
 	}
 	
@@ -299,6 +348,7 @@ public void fortifyPhase()
 		int income = board.getPlayerIncome(player);
 		int cards = board.getPlayerCards(player);
 		result = weights[7]*income + weights[8]*cards;
+		//makeLogEntry("Threat calculated as: " + result + "\n");
 		return result;
 	}
 	
@@ -313,14 +363,14 @@ public void fortifyPhase()
 		int turnsTaken = board.getTurnCount(); // check that these two methods do what we actually need
 		int bonus = board.getNextCardSetValue();
 		result = advantage + turnsTaken + bonus;
-		Float resultWrapped = new Float(result);
 		// update min and max recklessness if we've expanded the range
-		if (resultWrapped.compareTo(minRecklessness) == -1) {
-			minRecklessness = new Float(resultWrapped);
+		if (result < minRecklessness) {
+			minRecklessness = result;
 		}
-		if (resultWrapped.compareTo(maxRecklessness) == 1) {
-			maxRecklessness = new Float(resultWrapped);
+		if (result > maxRecklessness) {
+			maxRecklessness = result;
 		}
+		makeLogEntry("Recklessness calculated as: " + result + "\n");
 		return result;
 	}
 	private float calculateImportance(Country country, float[] weights) 
@@ -343,6 +393,8 @@ public void fortifyPhase()
 		float percentageOfContinent=1/countryCount;
 		float percentageOwned=ownedCount/countryCount;
 		float result= weights[0] * percentageOfContinent + weights[1] * percentageOwned;
+		//makeLogEntry("Importance calculated as: " + result + "\n");
+
 		return result;
 	}
 	private int[] getContinents(int playerID)
@@ -368,7 +420,7 @@ public void fortifyPhase()
 	{
 		int continent;
 		int[] continents = getContinents(playerID);
-		float greatestVulnerability=-100000;
+		float greatestVulnerability=0;
 		float continentsHeld=0;
 		for(int i=0; i<continents.length; i++)
 		{
@@ -378,11 +430,12 @@ public void fortifyPhase()
 			{
 				continentsHeld++;
 				//check boarders of this continent
-				int[] boarderCountries=BoardHelper.getContinentBorders(continent, countries);
-				for(int j=0; j<boarderCountries.length; j++)
+				int[] borderCountries=BoardHelper.getContinentBorders(continent, countries);
+				greatestVulnerability=calculateVulnerability(countries[borderCountries[0]], weights);
+				for(int j=0; j<borderCountries.length; j++)
 				{
 					//check all boarders within this country for most vulnerable overall
-					float vulnerability=calculateVulnerability(countries[boarderCountries[j]], weights);
+					float vulnerability=calculateVulnerability(countries[borderCountries[j]], weights);
 					if(vulnerability>greatestVulnerability)
 					{
 						greatestVulnerability=vulnerability;
@@ -392,20 +445,36 @@ public void fortifyPhase()
 			}
 		}
 		int armiesCount=BoardHelper.getPlayerArmies(playerID, countries);
-		float result=(weights[4]*continentsHeld + weights[5]*armiesCount)/(weights[6]*greatestVulnerability);
+		//makeLogEntry("Greatest Vulnerability for stability calculation: " + greatestVulnerability + "\n");
+		float result;
+		if(continentsHeld>0)
+		{
+			result=(weights[4]*board.getPlayerIncome(playerID) + weights[5]*armiesCount)/(weights[6]*greatestVulnerability);
+		}
+		else
+		{
+			result=10;
+		}
+		//makeLogEntry("Stability calculated as: " + result + "\n");
 		return result;
 	}
 	
 	private float calculateAdvantage(int playerID, float[] weights) 
 	{
 		float stability=calculateStability(playerID, weights);
-		int[] enemyPlayers=getEnemyPlayerIDs(playerID);
-		float totalThreat=0;
+		int[] enemyPlayers = getEnemyPlayerIDs(playerID);
+		float maxThreat=1;
 		for(int i=0; i<enemyPlayers.length; i++)
 		{
-			totalThreat+=calculateThreat(enemyPlayers[i], weights);
+			float threat=calculateThreat(enemyPlayers[i], weights);
+			if(threat>maxThreat)
+			{
+				maxThreat=threat;
+			}
 		}
-		float result=weights[9]*stability-weights[10]*totalThreat;
+		makeLogEntry("Advantage calculated as: "+weights[9]+"*"+stability+"-" +weights[10]+"*" +maxThreat+ "\n");
+		float result=weights[9]*stability-weights[10]*maxThreat;
+		//makeLogEntry("Advantage calculated as: " + result + "\n");
 		return result;
 	}
 	private int[] getEnemyPlayerIDs(int playerID)
@@ -420,7 +489,7 @@ public void fortifyPhase()
 		{
 			int currentID=countries[j].getOwner();
 			Integer ID=new Integer(currentID);
-			if(currentID!=playerID && enemyIDs.contains(ID))
+			if(currentID!=playerID && ! enemyIDs.contains(ID))
 			{
 				result[i]=currentID;
 				enemyIDs.add(ID);
@@ -434,13 +503,30 @@ public void fortifyPhase()
 	
 	
 	private boolean plausibleAttack(Country attacker, Country target) {
-		return true;
+		if(recklessness>calculateRecklessAttackThreshold(attackWeights)&&attacker.getArmies()>5)
+		{
+			return true;
+		}
+		else
+		{
+			return attacker.getArmies()>target.getArmies();
+		}
 	}
 
 	private boolean evaluateAttackPhase(int countriesConquered) {
 		//return TRUE if attacking should continue
-		
-		return true;
+		if(recklessness>calculateRecklessAttackThreshold(attackWeights))
+		{
+			return true;
+		}
+		else if(countriesConquered>1)
+		{
+			return false;
+		}
+		else
+		{
+			return true;
+		}
 	}
 	@Override
 	public int pickCountry()
@@ -475,18 +561,42 @@ public void fortifyPhase()
 	return null;
 	}
 	
+	// return a negative number which will be added to a rank to "increase" it
 	public float winFitnessFunction() {
-		float result = 0.0f;
+		float result = -1.0f;
 		return result;
 	}
 	
+	// return a positive number which will be added to a rank to "decrease" it
 	public float lossFitnessFunction() {
-		float result = 0.0f;
+		int players = board.getNumberOfPlayersLeft();
+		float result = 1.0f*players; // suffer a more severe loss if you were eliminated early
 		return result;
 	}
 	
-	public void getWeightValues() {
-		 makeLogEntry("getWeightValues called\n");
+	public String[] getRawRulesInput() {
+		File rulesFile = new File (rulesPath);
+		FileReader reader;
+		char[] raw = new char[(int)rulesFile.length()];
+		try {
+			reader = new FileReader(rulesFile);
+			try {
+				reader.read(raw);
+				reader.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+		}
+		String rawAsString = new String(raw);
+		String[] result = rawAsString.split("[\r\n]+---[\r\n]+");
+		return result;
+	}
+	
+	public float[] getReckValues() {
+		float result[] = new float[lettersArray.length];
+		 //makeLogEntry("getWeightValues called\n");
 		 File reckFile = new File(reckPath);
 		 FileReader reader;
 		 // get the min and max recklessness values
@@ -504,11 +614,58 @@ public void fortifyPhase()
 			}
 		 String rawAsString = new String(reck);
 		 String[] minMaxRecklessness = rawAsString.split("_");
-		 makeLogEntry("Setting minReck to " + minMaxRecklessness[0] + ", maxReck to " + minMaxRecklessness[1] + ".\n");
-		 minRecklessness = new Float (minMaxRecklessness[0]);
-		 maxRecklessness = new Float (minMaxRecklessness[1]);
+		 //makeLogEntry("Setting minReck to " + minMaxRecklessness[0] + ", maxReck to " + minMaxRecklessness[1] + ".\n");
+		 result[0] = Float.valueOf(minMaxRecklessness[0]).floatValue();
+		 result[1] = Float.valueOf(minMaxRecklessness[1]).floatValue();
+		 return result;
+	}
+	public Rule[] getDeployRules(String input) {
+		 //makeLogEntry("getWeightValues called\n");
 		// get the array of deploy rules
+		
+		String deployString = new String(input);
+		String[] deployRulesStrings = deployString.split("[\r\n]+");
+		Rule[] result = new Rule[deployRulesStrings.length];
+		for (int i=0; i < deployRulesStrings.length; i++) {
+			result[i] = new Rule(deployRulesStrings[i]);
+		}
+		// sort in ascending rank (1,2,...,n) i.e., better rules first
+		RuleComparator<Rule> c = new RuleComparator<Rule>();
+		Arrays.sort(result, c);
+		
+		return result;
+	}
+	
+	public float[] getDeployWeights(Rule[] rules) {
+		float[] result = new float[lettersArray.length];
+		// for A-L, find the first rule that mentions that letter
+				Rule deployRule;
+				for (int i = 0; i < lettersArray.length; i++) {
+					int j = 0;
+					while (true) {
+						deployRule = new Rule(rules[j].toString());
+						if (j < rules.length - 1) { // iterate if not at the end
+							j++;
+						} else { // otherwise start over
+							j = 0;
+						}
+						if (deployRule.getName().equals(lettersArray[i]) == true || rand.nextFloat() > explorationThreshold) {
+							// assign that rule's weight to the corresponding letter's index (A=0,B=1,...)
+							result[i] = deployRule.getWeight();
+						}
+						else { // stop iterating with probability P = (1 - explorationThreshold) if a matching rule is found
+							break;
+						}
+					} 	
+				}
+		return result;
+	}
+	
+	public Rule[] getAttackRules(String input) {
+		// makeLogEntry("getWeightValues called\n");
+		// get the array of attack rules
 		File rulesFile = new File (rulesPath);
+		FileReader reader;
 		char[] raw = new char[(int)rulesFile.length()];
 		try {
 			reader = new FileReader(rulesFile);
@@ -521,93 +678,109 @@ public void fortifyPhase()
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 		}
-		rawAsString = new String(raw);
-		String[] threeArrays = rawAsString.split("\n---\n");
-		String deployString = new String(threeArrays[0]);
-		String[] deployRulesStrings = deployString.split("\n");
-		deployRules = new Rule[deployRulesStrings.length];
-		for (int i=0; i < deployRulesStrings.length; i++) {
-			deployRules[i] = new Rule(deployRulesStrings[i]);
-			makeLogEntry("Imported deploy rule " + deployRules[i].toString() + ".\n");
+		String rawAsString = new String(raw);
+		String[] threeArrays = rawAsString.split("[\r\n]+---[\r\n]+");
+		String attackString = new String(input);
+		String[] attackRulesStrings = attackString.split("[\r\n]+");
+		Rule[] result = new Rule[attackRulesStrings.length];
+		for (int i=0; i < attackRulesStrings.length; i++) {
+			result[i] = new Rule(attackRulesStrings[i]);
 		}
 		// sort in ascending rank (1,2,...,n) i.e., better rules first
 		RuleComparator<Rule> c = new RuleComparator<Rule>();
-		Arrays.sort(deployRules, c);
-		// for A-L, find the first rule that mentions that letter
-		for (int i = 0; i < lettersArray.length; i++) {
-			Rule deployRule;
-			int j = 0;
-			do {
-				deployRule = deployRules[j];
-				if (j < deployRules.length - 1) { // iterate if not at the end
-					j++;
-				} else { // otherwise start over
-					j = 0;
-				}
-			// stop iterating with probability P = (1 - explorationThreshold) if a matching rule is found
-			} while (deployRule.getName().equals(lettersArray[i]) == false || rand.nextFloat() < explorationThreshold);
-		// assign that rule's weight to the corresponding letter's index (A=0,B=1,...,L=12)
-			deployWeights[i] = deployRule.getWeight();
-		}
-		makeLogEntry("deploy weights set\n");
-		// get the array of attack rules, sorted in ascending rank (1,2,...,n)
-		String attackString = new String(threeArrays[1]);
-		String[] attackRulesStrings = attackString.toString().split("\n");
-		attackRules = new Rule[attackRulesStrings.length];
-		for (int i=1; i < attackRulesStrings.length; i++) {
-			attackRules[i] = new Rule(attackRulesStrings[i]);
-
-		}
-		Arrays.sort(attackRules, c);
-		// for A-L, find the first rule that mentions that letter
-		for (int i = 0; i < lettersArray.length; i++) {
-			Rule attackRule;
-			int j = 0;
-			do {
-				attackRule = attackRules[j];
-				if (j < attackRules.length - 1) { // iterate if not at the end
-					j++;
-				} else { // otherwise start over
-					j = 0;
-				}
-			// stop iterating with probability P = (1 - explorationThreshold) if a matching rule is found
-			} while (attackRule.getName().equals(lettersArray[i]) == false || rand.nextFloat() < explorationThreshold);
-		// assign that rule's weight to the corresponding letter's index (A=0,B=1,...,L=12)
-			attackWeights[i] = attackRule.getWeight();
-		}
-		makeLogEntry("attack weights set\n");
-
-		// get the array of fortify rules, sorted in ascending rank (1,2,...,n)
-		String fortifyString = new String(threeArrays[2]);
-		String[] fortifyRulesStrings = fortifyString.toString().split("\n");
-		fortifyRules = new Rule[fortifyRulesStrings.length];
-		for (int i=1; i < fortifyRulesStrings.length; i++) {
-			fortifyRules[i] = new Rule(fortifyRulesStrings[i]);
-		}
-		// for A-L, find the first rule that mentions that letter
-		for (int i = 0; i < lettersArray.length; i++) {
-			Rule fortifyRule;
-			int j = 0;
-			do {
-				fortifyRule = fortifyRules[j];
-				if (j < fortifyRules.length - 1) { // iterate if not at the end
-					j++;
-				} else { // otherwise start over
-					j = 0;
-				}
-			// stop iterating with probability P = (1 - explorationThreshold) if a matching rule is found
-			} while (fortifyRule.getName().equals(lettersArray[i]) == false || rand.nextFloat() < explorationThreshold);
-		// assign that rule's weight to the corresponding letter's index (A=0,B=1,...,L=12)
-			fortifyWeights[i] = fortifyRule.getWeight();
-		}
-		makeLogEntry("GetWeights finished\n");
+		Arrays.sort(result, c);
+		
+		return result;
 	}
+	
+	public float[] getAttackWeights(Rule[] rules) {
+		float[] result = new float[lettersArray.length];
+		// for A-L, find the first rule that mentions that letter
+				Rule attackRule;
+				for (int i = 0; i < lettersArray.length; i++) {
+					int j = 0;
+					while (true) {
+						attackRule = new Rule(rules[j].toString());
+						if (j < rules.length - 1) { // iterate if not at the end
+							j++;
+						} else { // otherwise start over
+							j = 0;
+						}
+						if (attackRule.getName().equals(lettersArray[i]) == true || rand.nextFloat() > explorationThreshold) {
+							// assign that rule's weight to the corresponding letter's index (A=0,B=1,...)
+							result[i] = attackRule.getWeight();
+						}
+						else { // stop iterating with probability P = (1 - explorationThreshold) if a matching rule is found
+							break;
+						}
+					} 	
+				}
+		return result;
+	}
+	
+	public Rule[] getFortifyRules(String input) {
+		 //makeLogEntry("getWeightValues called\n");
+		// get the array of fortify rules
+		File rulesFile = new File (rulesPath);
+		FileReader reader;
+		char[] raw = new char[(int)rulesFile.length()];
+		try {
+			reader = new FileReader(rulesFile);
+			try {
+				reader.read(raw);
+				reader.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+		}
+		String rawAsString = new String(raw);
+		String[] threeArrays = rawAsString.split("[\r\n]+---[\r\n]+");
+		String fortifyString = new String(input);
+		String[] fortifyRulesStrings = fortifyString.split("[\r\n]+");
+		Rule[] result = new Rule[fortifyRulesStrings.length];
+		for (int i=0; i < fortifyRulesStrings.length; i++) {
+			result[i] = new Rule(fortifyRulesStrings[i]);
+		}
+		// sort in ascending rank (1,2,...,n) i.e., better rules first
+		RuleComparator<Rule> c = new RuleComparator<Rule>();
+		Arrays.sort(result, c);
+		
+		return result;
+	}
+	
+	public float[] getFortifyWeights(Rule[] rules) {
+		float[] result = new float[lettersArray.length];
+		// for A-L, find the first rule that mentions that letter
+				Rule fortifyRule;
+				for (int i = 0; i < lettersArray.length; i++) {
+					int j = 0;
+					while (true) {
+						fortifyRule = new Rule(rules[j].toString());
+						if (j < rules.length - 1) { // iterate if not at the end
+							j++;
+						} else { // otherwise start over
+							j = 0;
+						}
+						if (fortifyRule.getName().equals(lettersArray[i]) == true || rand.nextFloat() > explorationThreshold) {
+							// assign that rule's weight to the corresponding letter's index (A=0,B=1,...)
+							result[i] = fortifyRule.getWeight();
+						}
+						else { // stop iterating with probability P = (1 - explorationThreshold) if a matching rule is found
+							break;
+						}
+					} 	
+				}
+		return result;
+	}
+		
 	
 	public void adjustRules(float adjustment) {
 		// update min and max recklessness in case they've changed this round
 		String newReck = "";
-		String newMin = minRecklessness.toString();
-		String newMax = minRecklessness.toString();
+		String newMin = String.valueOf(minRecklessness);
+		String newMax = String.valueOf(maxRecklessness);
 		newReck = newReck + newMin + "_" + newMax;
 		File reckFile = new File(reckPath);
 		FileWriter writer;
@@ -619,13 +792,18 @@ public void fortifyPhase()
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		String newRules = "";
-		// change each deploy weight's rank by amount adjustment - determined by the fitness function and passed in
-		for (int i=0; i < deployWeights.length; i++) {
+		String newDeployRules = "";
+		String newAttackRules = "";
+		String newFortifyRules = "";
+
+		// change each fortify weight's rank by amount adjustment - determined by the fitness function and passed in
+		for (int i=0; i < fortifyWeights.length; i++) {
 			String name = lettersArray[i];
-			Float weight = new Float(deployWeights[i]);
-			for (Rule rule : deployRules) {
-				if (rule.getName().equals(name) && rule.getWeight() == weight.floatValue()) {
+			Float weight = new Float(fortifyWeights[i]);
+			//makeLogEntry("fortifyRules: " + Arrays.toString(fortifyRules));
+			for (int j = 0; j<fortifyRules.length; j++) {
+				Rule rule = new Rule(fortifyRules[j].toString());
+				if (rule.getName().equals(name) && Math.abs(rule.getWeight() - weight.floatValue()) < 0.001) {
 					int currentRank = rule.getRank();
 					currentRank = currentRank + (int) adjustment;
 					rule.SetRank(currentRank);
@@ -637,7 +815,7 @@ public void fortifyPhase()
 			String name = lettersArray[i];
 			Float weight = new Float(attackWeights[i]);
 			for (Rule rule : attackRules) {
-				if (rule.getName().equals(name) && rule.getWeight() == weight.floatValue()) {
+				if (rule.getName().equals(name) && Math.abs(rule.getWeight() - weight.floatValue()) < 0.001) {
 					int currentRank = rule.getRank();
 					currentRank = currentRank + (int)adjustment;
 					rule.SetRank(currentRank);
@@ -649,7 +827,7 @@ public void fortifyPhase()
 			String name = lettersArray[i];
 			Float weight = new Float(fortifyWeights[i]);
 			for (Rule rule : fortifyRules) {
-				if (rule.getName().equals(name) && rule.getWeight() == weight.floatValue()) {
+				if (rule.getName().equals(name) && Math.abs(rule.getWeight() - weight.floatValue()) < 0.001) {
 					int currentRank = rule.getRank();
 					currentRank = currentRank + (int)adjustment;
 					rule.SetRank(currentRank);
@@ -659,17 +837,23 @@ public void fortifyPhase()
 		// convert the rules to string format
 		
 		for (int i=0; i < deployRules.length; i++) {
-			newRules = newRules + "\n" + deployRules[i].toString();
-			newRules = newRules + "\n" + attackRules[i].toString();
-			newRules = newRules + "\n" + fortifyRules[i].toString();
+			newDeployRules = newDeployRules + deployRules[i].toString() + "\n";
 		}
-		
+		newDeployRules = newDeployRules + "---\n";
+		for (int i=0; i < attackRules.length; i++) {
+			newAttackRules = newAttackRules + attackRules[i].toString() + "\n";
+		}
+		newAttackRules = newAttackRules + "---";
+		for (int i=0; i < fortifyRules.length; i++) {
+			newFortifyRules = newFortifyRules + "\n" + fortifyRules[i].toString();
+		}
+				
 		// write the changes to disk for persistence, overwriting the old values
 		File rulesFile = new File(rulesPath);
 		
 		try {
 			writer = new FileWriter(rulesFile, false);
-			writer.write(newRules);
+			writer.write(newDeployRules + newAttackRules + newFortifyRules);
 			writer.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -679,7 +863,16 @@ public void fortifyPhase()
 	
 	public void setup() {
 		rand = new Random();
-		getWeightValues();
+		float[] minMax = getReckValues();
+		minRecklessness = minMax[0];
+		maxRecklessness = minMax[1];
+		String[] threeArrays = getRawRulesInput();
+		deployRules = getDeployRules(threeArrays[0]);
+		deployWeights = getDeployWeights(deployRules);
+		attackRules = getAttackRules(threeArrays[1]);
+		attackWeights = getAttackWeights(attackRules);
+		fortifyRules = getFortifyRules(threeArrays[2]);
+		fortifyWeights = getFortifyWeights(fortifyRules);
 	}
 	
 	public void makeLogEntry(String message) {
@@ -756,7 +949,7 @@ public void fortifyPhase()
 			if (rule1.getRank() < rule2.getRank()) {
 				result = -1;
 			} else if (rule1.getRank() > rule2.getRank()) {
-				result =1 ;
+				result = 1 ;
 			} else {
 				result = 0;
 			}
