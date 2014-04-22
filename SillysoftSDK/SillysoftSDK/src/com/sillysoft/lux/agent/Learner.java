@@ -491,19 +491,13 @@ public void fortifyPhase()
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 		}
-		makeLogEntry("file found and read\n");
 		String[] threeArrays = raw.toString().split("\n---\n");
-		makeLogEntry("split into 3 arrays\n");
 		String deployString = threeArrays[0];
 		String[] deployRulesStrings = deployString.toString().split("\n");
-		makeLogEntry("deploy rules string set\n");
 		deployRules = new Rule[deployRulesStrings.length];
 		for (int i=0; i < deployRulesStrings.length; i++) {
-			makeLogEntry("deploy rule: \n");
 			deployRules[i] = new Rule(deployRulesStrings[i]);
-			
 		}
-		makeLogEntry("deploy rules created\n");
 		// sort in ascending rank (1,2,...,n) i.e., better rules first
 		RuleComparator<Rule> c = new RuleComparator<Rule>();
 		Arrays.sort(deployRules, c);
@@ -530,9 +524,9 @@ public void fortifyPhase()
 		attackRules = new Rule[attackRulesStrings.length];
 		for (int i=1; i < attackRulesStrings.length; i++) {
 			attackRules[i] = new Rule(attackRulesStrings[i]);
+
 		}
 		Arrays.sort(attackRules, c);
-		makeLogEntry("attack rules created\n");
 		// for A-L, find the first rule that mentions that letter
 		for (int i = 0; i < lettersArray.length; i++) {
 			Rule attackRule;
