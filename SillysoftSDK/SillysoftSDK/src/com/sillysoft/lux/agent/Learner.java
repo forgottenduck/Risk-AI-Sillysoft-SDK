@@ -42,7 +42,8 @@ public class Learner extends SmartAgentBase {
 		private float explorationThreshold = 0.15f; // probability to explore instead of exploit (0.0 - 1.0 range)
 		private String[] lettersArray = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N"};
 		private Boolean didSetup = false;
-
+		private int turnCount;
+		
 	public float version() {
 		return 1.0f;
 	}
@@ -97,6 +98,7 @@ public class Learner extends SmartAgentBase {
 	
 	public void cardsPhase( Card[] cards )
 	{
+		turnCount++;
 		Card[] set=null;
 		if(cards.length==5 || recklessness>calculateRecklessCardThreshold(deployWeights))
 		{
@@ -574,7 +576,20 @@ public void fortifyPhase()
 	// return a positive number which will be added to a rank to "decrease" it
 	public float lossFitnessFunction() {
 		int players = board.getNumberOfPlayersLeft();
-		float result = 1.0f*players; // suffer a more severe loss if you were eliminated early
+		float result;
+		int turnsFromDefeat=board.getTurnCount()-turnCount;
+		if(turnsFromDefeat>0.8*board.getTurnCount())
+		{
+			result=5;
+		} else if (turnsFromDefeat > 0.6*board.getTurnCount()){
+			result=4;
+		}else if (turnsFromDefeat > 0.4*board.getTurnCount()){
+			result=3;
+		}else if (turnsFromDefeat > 0.2*board.getTurnCount()){
+			result=2;
+		}else{
+			result=1;
+		}
 		return result;
 	}
 	
