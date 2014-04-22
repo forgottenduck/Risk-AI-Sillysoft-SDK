@@ -4,13 +4,13 @@ package com.sillysoft.lux.agent;
 import com.sillysoft.lux.*;
 import com.sillysoft.lux.util.*;
 
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Random;
 import java.util.List;
@@ -664,5 +664,64 @@ public void fortifyPhase()
 			e.printStackTrace();
 		}
 	} 
+	class Rule {
+		
+		private String name;
+		private Float weight;
+		private Integer rank;
+		
+		public Rule(String input) {
+			String[] values = input.split("_");
+			name = values[0];
+			weight = Float.parseFloat(values[1]);
+			rank = Integer.parseInt(values[2]);
+		}
+		
+		public String getName() {
+			String result = name;
+			return result;
+		}
+		public int setName(String input) {
+			name = input;
+			return 0;
+		}
+		public float getWeight() {
+			float result = weight.floatValue();
+			return result;
+		}
+		public int setWeight(float input) {
+			weight = input;
+			return 0;
+		}
+		public int getRank() {
+			int result = rank.intValue();
+			return result;
+		}
+		public int SetRank(int input) {
+			rank = input;
+			return 0;
+		}
+		public String toString() {
+			String result = name.toString() + "_" + weight.toString() + "_" + rank.toString();
+			return result;
+		}
+	}
 	
+	class RuleComparator<T> implements Comparator<T> {
+
+		public int compare(T o1, T o2) {
+			int result;
+			Rule rule1 = (Rule)o1;
+			Rule rule2 = (Rule)o2;
+			if (rule1.getRank() < rule2.getRank()) {
+				result = -1;
+			} else if (rule1.getRank() > rule2.getRank()) {
+				result =1 ;
+			} else {
+				result = 0;
+			}
+			return result;
+		}
+
+	}
 }
