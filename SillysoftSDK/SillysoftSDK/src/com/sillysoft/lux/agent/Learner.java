@@ -26,6 +26,8 @@ public class Learner extends SmartAgentBase {
 	// values used in tactics analysis, adjusted via learning weights
 		float recklessness;
 		float minRecklessness, maxRecklessness;
+		float recklessFortifyThreshold;
+		float recklessCardThreshold;
 	// fine-tuning weights that can be adjusted via the rule set
 		Rule[] deployRules = new Rule[280];
 		Rule[] attackRules = new Rule[280];
@@ -78,7 +80,7 @@ public class Learner extends SmartAgentBase {
 			while (own.hasNext()) 
 			{
 				Country us = own.next();
-				float strategicValue=calculateStrategicValue(us, deployWeights);
+				float strategicValue=calculateStrategicValue(us, fortifyWeights);
 				
 				// If it's the best so far store it
 				//makeLogEntry("strategic value: " + strategicValue + ".\n");
@@ -456,6 +458,7 @@ public void fortifyPhase()
 			result=10;
 		}
 		//makeLogEntry("Stability calculated as: " + result + "\n");
+		//makeLogEntry("stability calculated as: " + result + ".\n");
 		return result;
 	}
 	
@@ -475,6 +478,7 @@ public void fortifyPhase()
 		makeLogEntry("Advantage calculated as: "+weights[9]+"*"+stability+"-" +weights[10]+"*" +maxThreat+ "\n");
 		float result=weights[9]*stability-weights[10]*maxThreat;
 		//makeLogEntry("Advantage calculated as: " + result + "\n");
+		//makeLogEntry("advantage calculated as: " + result + ".\n");
 		return result;
 	}
 	private int[] getEnemyPlayerIDs(int playerID)
