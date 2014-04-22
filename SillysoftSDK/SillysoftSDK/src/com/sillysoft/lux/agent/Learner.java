@@ -25,6 +25,7 @@ import java.util.ArrayList;
 public class Learner extends SmartAgentBase {
 	// values used in tactics analysis, adjusted via learning weights
 		float recklessness;
+		Float minRecklessness, maxRecklessness;
 		float recklessFortifyThreshold;
 		float recklessCardThreshold;
 	// fine-tuning weights that can be adjusted via the rule set
@@ -33,6 +34,7 @@ public class Learner extends SmartAgentBase {
 		// A filename for the log
 		private String fileName;
 		private String rulesPath = Board.getAgentPath() + "rules.txt";
+		private String reckPath = Board.getAgentPath() + "reck.txt";
 		private float explorationThreshold = 0.15f; // probability to explore instead of exploit (0.0 - 1.0 range)
 		private String[] lettersArray = {"A","B","C","D","E","F","G","H","I","J","K","L","M"};
 
@@ -53,12 +55,12 @@ public class Learner extends SmartAgentBase {
 	@Override
 	public void placeInitialArmies( int numberOfArmies )
 	{
+		setup();
 		placeArmies(numberOfArmies);
 	}
 	
 	public void placeArmies( int numberOfArmies )
 	{
-		setup();
 		Country mostValuableCountry = null;
 		float largestStrategicValue=-100000;
 		// Use a PlayerIterator to cycle through all the countries that we own.
@@ -311,6 +313,14 @@ public void fortifyPhase()
 		int turnsTaken = board.getTurnCount(); // check that these two methods do what we actually need
 		int bonus = board.getNextCardSetValue();
 		result = advantage + turnsTaken + bonus;
+		Float resultWrapped = new Float(result);
+		// update min and max recklessness if we've expanded the range
+		if (resultWrapped.compareTo(minRecklessness) == -1) {
+			minRecklessness = new Float(resultWrapped);
+		}
+		if (resultWrapped.compareTo(maxRecklessness) == 1) {
+			maxRecklessness = new Float(resultWrapped);
+		}
 		return result;
 	}
 	private float calculateImportance(Country country, float[] weights) 
@@ -476,12 +486,32 @@ public void fortifyPhase()
 	}
 	
 	public void getWeightValues() {
-		// get the array of deploy rules
 		 makeLogEntry("getWeightValues called\n");
-		char[] raw = {};
-		FileReader reader;
+		 File reckFile = new File(reckPath);
+		 FileReader reader;
+		 // get the min and max recklessness values
+		 char[] reck = new char[(int)reckFile.length()];
+		 try {
+				reader = new FileReader(reckFile);
+				try {
+					reader.read(reck);
+					reader.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+				}
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+			}
+		 String rawAsString = new String(reck);
+		 String[] minMaxRecklessness = rawAsString.split("_");
+		 makeLogEntry("Setting minReck to " + minMaxRecklessness[0] + ", maxReck to " + minMaxRecklessness[1] + ".\n");
+		 minRecklessness = new Float (minMaxRecklessness[0]);
+		 maxRecklessness = new Float (minMaxRecklessness[1]);
+		// get the array of deploy rules
+		File rulesFile = new File (rulesPath);
+		char[] raw = new char[(int)rulesFile.length()];
 		try {
-			reader = new FileReader(rulesPath);
+			reader = new FileReader(rulesFile);
 			try {
 				reader.read(raw);
 				reader.close();
@@ -491,12 +521,14 @@ public void fortifyPhase()
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 		}
-		String[] threeArrays = raw.toString().split("\n---\n");
-		String deployString = threeArrays[0];
-		String[] deployRulesStrings = deployString.toString().split("\n");
+		rawAsString = new String(raw);
+		String[] threeArrays = rawAsString.split("\n---\n");
+		String deployString = new String(threeArrays[0]);
+		String[] deployRulesStrings = deployString.split("\n");
 		deployRules = new Rule[deployRulesStrings.length];
 		for (int i=0; i < deployRulesStrings.length; i++) {
 			deployRules[i] = new Rule(deployRulesStrings[i]);
+			makeLogEntry("Imported deploy rule " + deployRules[i].toString() + ".\n");
 		}
 		// sort in ascending rank (1,2,...,n) i.e., better rules first
 		RuleComparator<Rule> c = new RuleComparator<Rule>();
@@ -519,7 +551,7 @@ public void fortifyPhase()
 		}
 		makeLogEntry("deploy weights set\n");
 		// get the array of attack rules, sorted in ascending rank (1,2,...,n)
-		String attackString = threeArrays[1];
+		String attackString = new String(threeArrays[1]);
 		String[] attackRulesStrings = attackString.toString().split("\n");
 		attackRules = new Rule[attackRulesStrings.length];
 		for (int i=1; i < attackRulesStrings.length; i++) {
@@ -546,7 +578,7 @@ public void fortifyPhase()
 		makeLogEntry("attack weights set\n");
 
 		// get the array of fortify rules, sorted in ascending rank (1,2,...,n)
-		String fortifyString = threeArrays[2];
+		String fortifyString = new String(threeArrays[2]);
 		String[] fortifyRulesStrings = fortifyString.toString().split("\n");
 		fortifyRules = new Rule[fortifyRulesStrings.length];
 		for (int i=1; i < fortifyRulesStrings.length; i++) {
@@ -572,6 +604,21 @@ public void fortifyPhase()
 	}
 	
 	public void adjustRules(float adjustment) {
+		// update min and max recklessness in case they've changed this round
+		String newReck = "";
+		String newMin = minRecklessness.toString();
+		String newMax = minRecklessness.toString();
+		newReck = newReck + newMin + "_" + newMax;
+		File reckFile = new File(reckPath);
+		FileWriter writer;
+		try {
+			writer = new FileWriter(reckFile, false);
+			writer.write(newReck);
+			writer.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		String newRules = "";
 		// change each deploy weight's rank by amount adjustment - determined by the fitness function and passed in
 		for (int i=0; i < deployWeights.length; i++) {
@@ -620,10 +667,9 @@ public void fortifyPhase()
 		// write the changes to disk for persistence, overwriting the old values
 		File rulesFile = new File(rulesPath);
 		
-		FileWriter writer;
 		try {
 			writer = new FileWriter(rulesFile, false);
-			writer.write("");
+			writer.write(newRules);
 			writer.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
