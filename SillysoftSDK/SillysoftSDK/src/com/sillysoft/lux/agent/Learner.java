@@ -229,40 +229,50 @@ public void fortifyPhase()
 					}
 				}
 			}
-			if(!pathFound)
-			{
 				//get regular border countries
-				int borderCountries[]=BoardHelper.getContinentBorders(us.getContinent(), countries);
-				for(int i=0; i< borderCountries.length; i++)
+			int borderCountries[]=BoardHelper.getContinentBorders(us.getContinent(), countries);
+			for(int i=0; i< borderCountries.length; i++)
+			{
+				//if regular border is owned, start to move armies toward that border
+				if(countries[borderCountries[i]].getOwner()==ID)
 				{
-					//if regular border is owned, start to move armies toward that border
-					if(countries[borderCountries[i]].getOwner()==ID)
-					{
-						Country[] path=BoardHelper.friendlyPathBetweenCountries(us, countries[borderCountries[i]], countries);
-						//if path to country found
-						if(path != null){
-							//add possible path destination to list
-							pathFound=true;
-							possibleTargets.add(countries[beyondBorderCountries[i]]);
-						}
+					Country[] path=BoardHelper.friendlyPathBetweenCountries(us, countries[borderCountries[i]], countries);
+					//if path to country found
+					if(path != null){
+						//add possible path destination to list
+						pathFound=true;
+						possibleTargets.add(countries[beyondBorderCountries[i]]);
 					}
 				}
-				if(!pathFound)
+			}
+			if(!pathFound)
+			{
+				Random random=new Random();
+				int j=random.nextInt(friendlyCountries.length);
+				fortifyTarget=countries[friendlyCountries[j]];
+			}
+			else{
+				Random random=new Random();
+				List<Country> newTargets=new ArrayList<Country>();
+				for(Country c : possibleTargets)
 				{
-					Random random=new Random();
-					int j=random.nextInt(friendlyCountries.length);
-					fortifyTarget=countries[friendlyCountries[j]];
+					if(c.getHostileAdjoiningCodeList().length>0){
+						newTargets.add(c);
+					}
 				}
-				else
+				if(newTargets.size()>0)
 				{
-					Random random=new Random();
-					int j=random.nextInt(possibleTargets.size());
-					Country[] targets=possibleTargets.toArray(new Country[possibleTargets.size()]);
+					Country[] targets=newTargets.toArray(new Country[newTargets.size()]);
+					int j=random.nextInt(targets.length);
+					Country[] path=BoardHelper.friendlyPathBetweenCountries(us, targets[j], countries);
+					fortifyTarget=path[1];
+				}else{
+					Country[] targets=possibleTargets.toArray(new Country[newTargets.size()]);
+					int j=random.nextInt(targets.length);
 					Country[] path=BoardHelper.friendlyPathBetweenCountries(us, targets[j], countries);
 					fortifyTarget=path[1];
 				}
 			}
-			
 		}
 		// else if reckless, move to attack position
 		else if(recklessness>calculateRecklessFortifyThreshold(fortifyWeights))
