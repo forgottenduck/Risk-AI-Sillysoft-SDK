@@ -41,7 +41,7 @@ public class Learner extends SmartAgentBase {
 		private String rulesPath = Board.getAgentPath() + "rules.txt";
 		private String reckPath = Board.getAgentPath() + "reck.txt";
 		private String winlossPath = Board.getAgentPath() + "WinLoss.txt";
-		private float explorationThreshold = 0.45f; // probability to explore instead of exploit (0.0 - 1.0 range)
+		private float explorationThreshold = 0.15f; // probability to explore instead of exploit (0.0 - 1.0 range)
 		private String[] lettersArray = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N"};
 		private Boolean didSetup = false;
 		private int turnCount;
@@ -139,7 +139,7 @@ while(stillAttacking)
 	float lowestStrategicValue=1000000;
 	while (armies.hasNext()) 
 	{
-		//makeLogEntry("------------------------------------iteration-----------------------------------------\n");
+		makeLogEntry("------------------------------------iteration-----------------------------------------\n");
 		Country us = armies.next();
 		int[] possibleTargets=us.getHostileAdjoiningCodeList();
 		for(int i=0; i<possibleTargets.length; i++)
@@ -152,7 +152,7 @@ while(stillAttacking)
 				lowestStrategicValue=strategicValue;
 				attacker=us;
 				target=countries[possibleTargets[i]];
-				//makeLogEntry("Target: "+target.getName()+"\n");
+				makeLogEntry("Target: "+target.getName()+"\n");
 			}
 		}
 	}
@@ -168,7 +168,7 @@ while(stillAttacking)
 	}
 	else
 	{
-		//makeLogEntry("\n NO TARGET FOUND \n\n");
+		makeLogEntry("\n NO TARGET FOUND \n\n");
 		stillAttacking=false;
 	}
 }
@@ -493,7 +493,7 @@ public void fortifyPhase()
 			}
 		}
 		float result=weights[9]*stability-weights[10]*maxThreat;
-		makeLogEntry("Advantage calculated as: "+weights[9]+"*"+stability+"-" +weights[10]+"*" +maxThreat+ "="+result+"\n");
+		//makeLogEntry("Advantage calculated as: "+weights[9]+"*"+stability+"-" +weights[10]+"*" +maxThreat+ "="+result+"\n");
 		//makeLogEntry("Advantage calculated as: " + result + "\n");
 		//makeLogEntry("advantage calculated as: " + result + ".\n");
 		return result;
@@ -586,7 +586,7 @@ public void fortifyPhase()
 	
 	// return a negative number which will be added to a rank to "increase" it
 	public float winFitnessFunction() {
-		float result = -1.0f;
+		float result = -5.0f;
 		return result;
 	}
 	
@@ -597,15 +597,15 @@ public void fortifyPhase()
 		int turnsFromDefeat=board.getTurnCount()-turnCount;
 		if(turnsFromDefeat>0.8*board.getTurnCount())
 		{
-			result=5;
+			result=10;
 		} else if (turnsFromDefeat > 0.6*board.getTurnCount()){
-			result=4;
+			result=8;
 		}else if (turnsFromDefeat > 0.4*board.getTurnCount()){
-			result=3;
+			result=6;
 		}else if (turnsFromDefeat > 0.2*board.getTurnCount()){
-			result=2;
+			result=4;
 		}else{
-			result=1;
+			result=2;
 		}
 		return result;
 	}
