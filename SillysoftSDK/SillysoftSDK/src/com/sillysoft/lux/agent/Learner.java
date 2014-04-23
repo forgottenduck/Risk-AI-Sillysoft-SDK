@@ -75,9 +75,9 @@ public class Learner extends SmartAgentBase {
 		Country mostValuableCountry = null;
 		float largestStrategicValue=-100000;
 		// Use a PlayerIterator to cycle through all the countries that we own.
-		CountryIterator own = new PlayerIterator( ID, countries );
 		while(numberOfArmies>0)
 		{
+			CountryIterator own = new PlayerIterator( ID, countries );
 			Country first=own.next();
 			largestStrategicValue=calculateStrategicValue(first,deployWeights);
 			mostValuableCountry=first;
@@ -134,6 +134,7 @@ while(stillAttacking)
 	float lowestStrategicValue=1000000;
 	while (armies.hasNext()) 
 	{
+		makeLogEntry("------------------------------------iteration-----------------------------------------\n");
 		Country us = armies.next();
 		int[] possibleTargets=us.getHostileAdjoiningCodeList();
 		for(int i=0; i<possibleTargets.length; i++)
@@ -146,6 +147,7 @@ while(stillAttacking)
 				lowestStrategicValue=strategicValue;
 				attacker=us;
 				target=countries[possibleTargets[i]];
+				makeLogEntry("Target: "+target.getName()+"\n");
 			}
 		}
 	}
@@ -161,6 +163,7 @@ while(stillAttacking)
 	}
 	else
 	{
+		makeLogEntry("\n NO TARGET FOUND \n\n");
 		stillAttacking=false;
 	}
 }
@@ -307,8 +310,10 @@ public void fortifyPhase()
 	public float calculateStrategicValue(Country country, float[] weights) {
 		float result = 0;
 		float advantage = calculateAdvantage(ID, weights);
-		makeLogEntry("Advantage for strat value calculated as: " + advantage + "\n");
-		result = (calculateRecklessness(advantage)*calculateImportance(country, weights))/(calculateVulnerability(country, weights)/calculateRecklessness(advantage));
+		//makeLogEntry("Advantage for strat value calculated as: " + advantage + "\n");
+		//result = (calculateRecklessness(advantage)*calculateImportance(country, weights))/(calculateVulnerability(country, weights)/calculateRecklessness(advantage));
+		result = (calculateRecklessness(advantage)*calculateImportance(country, weights))-(calculateVulnerability(country, weights)/calculateRecklessness(advantage));
+
 		//makeLogEntry("Strategic value calculated as: " + result + "\n");
 		return result;
 	}
@@ -529,7 +534,7 @@ public void fortifyPhase()
 		{
 			return true;
 		}
-		else if(countriesConquered>1)
+		else if(countriesConquered>5)
 		{
 			return false;
 		}
