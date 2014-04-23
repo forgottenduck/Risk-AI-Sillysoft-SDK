@@ -207,6 +207,7 @@ public void fortifyPhase()
 		Country us=armies.next();
 		int[] friendlyCountries = us.getFriendlyAdjoiningCodeList();
 		Country fortifyTarget=null;
+		List<Country> possibleTargets=new ArrayList<Country>();
 		//If surrounded by friendly territories
 		//move in random direction
 		if(us.getAdjoiningList().length==friendlyCountries.length)
@@ -220,9 +221,11 @@ public void fortifyPhase()
 				{
 					
 					Country[] path=BoardHelper.friendlyPathBetweenCountries(us, countries[beyondBorderCountries[i]], countries);
+					//if path to country found
 					if (path != null) {
+						//add possible path destination to list
+						possibleTargets.add(countries[beyondBorderCountries[i]]);
 						pathFound = true;
-						fortifyTarget=path[1];
 					}
 				}
 			}
@@ -235,9 +238,13 @@ public void fortifyPhase()
 					//if regular border is owned, start to move armies toward that border
 					if(countries[borderCountries[i]].getOwner()==ID)
 					{
-						pathFound=true;
 						Country[] path=BoardHelper.friendlyPathBetweenCountries(us, countries[borderCountries[i]], countries);
-						fortifyTarget=path[1];
+						//if path to country found
+						if(path != null){
+							//add possible path destination to list
+							pathFound=true;
+							possibleTargets.add(countries[beyondBorderCountries[i]]);
+						}
 					}
 				}
 				if(!pathFound)
@@ -245,6 +252,14 @@ public void fortifyPhase()
 					Random random=new Random();
 					int j=random.nextInt(friendlyCountries.length);
 					fortifyTarget=countries[friendlyCountries[j]];
+				}
+				else
+				{
+					Random random=new Random();
+					int j=random.nextInt(possibleTargets.size());
+					Country[] targets=possibleTargets.toArray(new Country[possibleTargets.size()]);
+					Country[] path=BoardHelper.friendlyPathBetweenCountries(us, targets[j], countries);
+					fortifyTarget=path[1];
 				}
 			}
 			
@@ -857,9 +872,9 @@ public void fortifyPhase()
 		String winloss;
 		if(win)
 		{
-			winloss="WIN\n";
+			winloss="WIN  "+ turnCount + "\n";
 		}else{
-			winloss="LOSS\n";
+			winloss="LOSS "+ turnCount + "\n";
 		}
 		File winlossFile = new File(winlossPath);
 		FileWriter writer;
