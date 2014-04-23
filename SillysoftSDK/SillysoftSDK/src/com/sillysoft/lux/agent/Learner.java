@@ -78,10 +78,13 @@ public class Learner extends SmartAgentBase {
 		CountryIterator own = new PlayerIterator( ID, countries );
 		while(numberOfArmies>0)
 		{
+			Country first=own.next();
+			largestStrategicValue=calculateStrategicValue(first,deployWeights);
+			mostValuableCountry=first;
 			while (own.hasNext()) 
 			{
 				Country us = own.next();
-				float strategicValue=calculateStrategicValue(us, fortifyWeights);
+				float strategicValue=calculateStrategicValue(us, deployWeights);
 				
 				// If it's the best so far store it
 				//makeLogEntry("strategic value: " + strategicValue + ".\n");
@@ -182,6 +185,7 @@ public void fortifyPhase()
 	// Cycle through all the countries and find countries that we could move from:
 	// if country has no surrounding enemies, move armies toward country with most strategic value
 	// otherwise check recklessness to decide how to move armies
+	
 	CountryIterator armies = new ArmiesIterator( ID, 2, countries );
 	
 	while(armies.hasNext())
@@ -191,14 +195,14 @@ public void fortifyPhase()
 		Country fortifyTarget=null;
 		//If surrounded by friendly territories
 		//move in random direction
-		if(us.getAdjoiningList().length==adjoiningCountries.length)
-		{
-			Random rand=new Random();
-			int j=rand.nextInt(adjoiningCountries.length);
-			fortifyTarget=countries[adjoiningCountries[j]];
-		}
+	//	if(us.getAdjoiningList().length==adjoiningCountries.length)
+	//	{
+	//		Random rand=new Random();
+	//		int j=rand.nextInt(adjoiningCountries.length);
+	//		fortifyTarget=countries[adjoiningCountries[j]];
+	//	}
 		// if reckless, move to attack position
-		else if(recklessness>calculateRecklessFortifyThreshold(fortifyWeights))
+		if(recklessness>calculateRecklessFortifyThreshold(fortifyWeights))
 		{
 			float highestStrategicValue=calculateStrategicValue(us, fortifyWeights);
 			for(int i=0; i<adjoiningCountries.length;i++)
