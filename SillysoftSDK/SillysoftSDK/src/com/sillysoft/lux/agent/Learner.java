@@ -311,7 +311,6 @@ public void fortifyPhase()
 		float result = 0;
 		float advantage = calculateAdvantage(ID, weights);
 		//makeLogEntry("Advantage for strat value calculated as: " + advantage + "\n");
-		//result = (calculateRecklessness(advantage)*calculateImportance(country, weights))/(calculateVulnerability(country, weights)/calculateRecklessness(advantage));
 		result = (calculateRecklessness(advantage)*calculateImportance(country, weights))-(calculateVulnerability(country, weights)/calculateRecklessness(advantage));
 
 		//makeLogEntry("Strategic value calculated as: " + result + "\n");
@@ -825,15 +824,13 @@ public void fortifyPhase()
 		String newFortifyRules = "";
 
 		// change each fortify weight's rank by amount adjustment - determined by the fitness function and passed in
-		for (int i=0; i < fortifyWeights.length; i++) {
+		for (int i=0; i < deployWeights.length; i++) {
 			String name = lettersArray[i];
-			Float weight = new Float(fortifyWeights[i]);
-			//makeLogEntry("fortifyRules: " + Arrays.toString(fortifyRules));
-			for (int j = 0; j<fortifyRules.length; j++) {
-				Rule rule = new Rule(fortifyRules[j].toString());
+			Float weight = new Float(deployWeights[i]);
+			for (Rule rule : deployRules) {
 				if (rule.getName().equals(name) && Math.abs(rule.getWeight() - weight.floatValue()) < 0.001) {
 					int currentRank = rule.getRank();
-					currentRank = currentRank + (int) adjustment;
+					currentRank = currentRank + (int)adjustment;
 					rule.SetRank(currentRank);
 				}
 			}
