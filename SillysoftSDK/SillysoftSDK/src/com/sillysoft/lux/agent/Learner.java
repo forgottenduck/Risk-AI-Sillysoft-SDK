@@ -75,32 +75,33 @@ public class Learner extends SmartAgentBase {
 		//makeLogEntry("------DEPLOY PHASE------\n");
 
 		Country mostValuableCountry = null;
-		float largestStrategicValue=-100000;
+
 		// Use a PlayerIterator to cycle through all the countries that we own.
 		while(numberOfArmies>0)
 		{
 			CountryIterator own = new PlayerIterator( ID, countries );
-			Country first=own.next();
-			largestStrategicValue=calculateStrategicValue(first,deployWeights);
-			mostValuableCountry=first;
+			float largestStrategicValue=Float.NEGATIVE_INFINITY;
 			while (own.hasNext()) 
 			{
 				Country us = own.next();
 				float strategicValue=calculateStrategicValue(us, deployWeights);
-				
+				makeLogEntry("Considered Country: "+us.getName()+" with "+strategicValue+" strategic value. Has "+us.getHostileAdjoiningCodeList().length+ "hostile countries\n");
 				// If it's the best so far store it
 				//makeLogEntry("strategic value: " + strategicValue + ".\n");
 				if(us.getHostileAdjoiningCodeList().length!=0)
 				{
-				if ( strategicValue > largestStrategicValue )
-				{
-					largestStrategicValue=strategicValue;
-					mostValuableCountry=us;
-				}
+					if ( strategicValue > largestStrategicValue )
+					{
+						largestStrategicValue=strategicValue;
+						mostValuableCountry=us;
+					}
 				}
 			}
-			board.placeArmies( 1, mostValuableCountry);
-			numberOfArmies--;
+			if(mostValuableCountry!=null)
+			{
+				board.placeArmies( 1, mostValuableCountry);
+				numberOfArmies--;
+			}
 		}
 	}
 	
@@ -136,15 +137,20 @@ while(stillAttacking)
 	CountryIterator armies = new ArmiesIterator( ID, 4, countries );
 	Country attacker=null;
 	Country target=null;
-	float lowestStrategicValue=1000000;
+	float lowestStrategicValue=Float.POSITIVE_INFINITY;
 	while (armies.hasNext()) 
 	{
-		makeLogEntry("------------------------------------iteration-----------------------------------------\n");
+		//makeLogEntry("------------------------------------iteration-----------------------------------------\n");
 		Country us = armies.next();
 		int[] possibleTargets=us.getHostileAdjoiningCodeList();
+		//makeLogEntry("LOWEST STRAT VALUE: "+lowestStrategicValue+"\n");
+		//makeLogEntry("Country: "+us.getName()+" targets: \n");
+
 		for(int i=0; i<possibleTargets.length; i++)
 		{
+			//makeLogEntry("       "+ countries[possibleTargets[i]]+"\n");
 			float strategicValue=calculateStrategicValue(countries[possibleTargets[i]], attackWeights);
+			//makeLogEntry("              strategic value: "+ strategicValue+"\n");
 			//if target has low strategic value (should be taken)
 			// and is plausible attack (can be taken), we set this as current preferred target
 			if(strategicValue<lowestStrategicValue&&plausibleAttack(us,countries[possibleTargets[i]]))
@@ -152,7 +158,7 @@ while(stillAttacking)
 				lowestStrategicValue=strategicValue;
 				attacker=us;
 				target=countries[possibleTargets[i]];
-				makeLogEntry("Target: "+target.getName()+"\n");
+				//makeLogEntry("Target: "+target.getName()+"\n");
 			}
 		}
 	}
@@ -168,7 +174,7 @@ while(stillAttacking)
 	}
 	else
 	{
-		makeLogEntry("\n NO TARGET FOUND \n\n");
+		//makeLogEntry("\n NO TARGET FOUND \n\n");
 		stillAttacking=false;
 	}
 }
