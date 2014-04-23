@@ -218,9 +218,12 @@ public void fortifyPhase()
 				//if a beyond border is owned, start to move armies toward that border
 				if(countries[beyondBorderCountries[i]].getOwner()==ID)
 				{
-					pathFound=true;
+					
 					Country[] path=BoardHelper.friendlyPathBetweenCountries(us, countries[beyondBorderCountries[i]], countries);
-					fortifyTarget=path[1];
+					if (path != null) {
+						pathFound = true;
+						fortifyTarget=path[1];
+					}
 				}
 			}
 			if(!pathFound)
@@ -623,7 +626,8 @@ public void fortifyPhase()
 	
 	// return a negative number which will be added to a rank to "increase" it
 	public float winFitnessFunction() {
-		float result = -5.0f;
+		int players = board.getNumberOfPlayersLeft();
+		float result = -20.0f*players;
 		return result;
 	}
 	
@@ -634,15 +638,15 @@ public void fortifyPhase()
 		int turnsFromDefeat=board.getTurnCount()-turnCount;
 		if(turnsFromDefeat>0.8*board.getTurnCount())
 		{
-			result=10;
+			result=10*players;
 		} else if (turnsFromDefeat > 0.6*board.getTurnCount()){
-			result=8;
+			result=8*players;
 		}else if (turnsFromDefeat > 0.4*board.getTurnCount()){
-			result=6;
+			result=6*players;
 		}else if (turnsFromDefeat > 0.2*board.getTurnCount()){
-			result=4;
+			result=4*players;
 		}else{
-			result=2;
+			result=2*players;
 		}
 		return result;
 	}
