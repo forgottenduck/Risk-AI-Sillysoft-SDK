@@ -41,7 +41,7 @@ public class Learner extends SmartAgentBase {
 		private String rulesPath = Board.getAgentPath() + "rules.txt";
 		private String reckPath = Board.getAgentPath() + "reck.txt";
 		private String winlossPath = Board.getAgentPath() + "WinLoss.txt";
-		private float explorationThreshold = 0.15f; // probability to explore instead of exploit (0.0 - 1.0 range)
+		private float explorationThreshold = 0.45f; // probability to explore instead of exploit (0.0 - 1.0 range)
 		private String[] lettersArray = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N"};
 		private Boolean didSetup = false;
 		private int turnCount;
@@ -90,10 +90,13 @@ public class Learner extends SmartAgentBase {
 				
 				// If it's the best so far store it
 				//makeLogEntry("strategic value: " + strategicValue + ".\n");
+				if(us.getHostileAdjoiningCodeList().length!=0)
+				{
 				if ( strategicValue > largestStrategicValue )
 				{
 					largestStrategicValue=strategicValue;
 					mostValuableCountry=us;
+				}
 				}
 			}
 			board.placeArmies( 1, mostValuableCountry);
@@ -313,7 +316,7 @@ public void fortifyPhase()
 		float result = 0;
 		float advantage = calculateAdvantage(ID, weights);
 		//makeLogEntry("Advantage for strat value calculated as: " + advantage + "\n");
-		result = (calculateRecklessness(advantage)*calculateImportance(country, weights))-(calculateVulnerability(country, weights)/calculateRecklessness(advantage));
+		result = .01f*((calculateRecklessness(advantage)*calculateImportance(country, weights))-(calculateVulnerability(country, weights)/calculateRecklessness(advantage)));
 
 		//makeLogEntry("Strategic value calculated as: " + result + "\n");
 		return result;
