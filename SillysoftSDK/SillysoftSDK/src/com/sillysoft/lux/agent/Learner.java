@@ -205,26 +205,57 @@ public void fortifyPhase()
 	while(armies.hasNext())
 	{
 		Country us=armies.next();
-		int[] adjoiningCountries = us.getFriendlyAdjoiningCodeList();
+		int[] friendlyCountries = us.getFriendlyAdjoiningCodeList();
 		Country fortifyTarget=null;
 		//If surrounded by friendly territories
 		//move in random direction
-	//	if(us.getAdjoiningList().length==adjoiningCountries.length)
-	//	{
-	//		Random rand=new Random();
-	//		int j=rand.nextInt(adjoiningCountries.length);
-	//		fortifyTarget=countries[adjoiningCountries[j]];
-	//	}
-		// if reckless, move to attack position
-		if(recklessness>calculateRecklessFortifyThreshold(fortifyWeights))
+		if(us.getAdjoiningList().length==friendlyCountries.length)
+		{
+			int beyondBorderCountries[]=BoardHelper.getContinentBordersBeyond(us.getContinent(), countries);
+			boolean pathFound=false;
+			for(int i=0; i< beyondBorderCountries.length; i++)
+			{
+				//if a beyond border is owned, start to move armies toward that border
+				if(countries[beyondBorderCountries[i]].getOwner()==ID)
+				{
+					pathFound=true;
+					Country[] path=BoardHelper.friendlyPathBetweenCountries(us, countries[beyondBorderCountries[i]], countries);
+					fortifyTarget=path[1];
+				}
+			}
+			if(!pathFound)
+			{
+				//get regular border countries
+				int borderCountries[]=BoardHelper.getContinentBorders(us.getContinent(), countries);
+				for(int i=0; i< borderCountries.length; i++)
+				{
+					//if regular border is owned, start to move armies toward that border
+					if(countries[borderCountries[i]].getOwner()==ID)
+					{
+						pathFound=true;
+						Country[] path=BoardHelper.friendlyPathBetweenCountries(us, countries[borderCountries[i]], countries);
+						fortifyTarget=path[1];
+					}
+				}
+				if(!pathFound)
+				{
+					Random random=new Random();
+					int j=random.nextInt(friendlyCountries.length);
+					fortifyTarget=countries[friendlyCountries[j]];
+				}
+			}
+			
+		}
+		// else if reckless, move to attack position
+		else if(recklessness>calculateRecklessFortifyThreshold(fortifyWeights))
 		{
 			float highestStrategicValue=calculateStrategicValue(us, fortifyWeights);
-			for(int i=0; i<adjoiningCountries.length;i++)
+			for(int i=0; i<friendlyCountries.length;i++)
 			{
-				float strategicValue=calculateStrategicValue(countries[adjoiningCountries[i]], fortifyWeights);
+				float strategicValue=calculateStrategicValue(countries[friendlyCountries[i]], fortifyWeights);
 				if( strategicValue > highestStrategicValue)
 				{
-					fortifyTarget=countries[adjoiningCountries[i]];
+					fortifyTarget=countries[friendlyCountries[i]];
 					highestStrategicValue=strategicValue;
 				}
 			}	
@@ -233,12 +264,12 @@ public void fortifyPhase()
 		else
 		{
 			float highestVulnerability=calculateVulnerability(us, fortifyWeights);
-			for(int i=0; i<adjoiningCountries.length;i++)
+			for(int i=0; i<friendlyCountries.length;i++)
 			{
-				float vulnerability=calculateVulnerability(countries[adjoiningCountries[i]], fortifyWeights);
+				float vulnerability=calculateVulnerability(countries[friendlyCountries[i]], fortifyWeights);
 				if(vulnerability>highestVulnerability)
 				{
-					fortifyTarget=countries[adjoiningCountries[i]];
+					fortifyTarget=countries[friendlyCountries[i]];
 					highestVulnerability=vulnerability;
 				}
 			}
