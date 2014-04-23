@@ -26,6 +26,7 @@ public class Learner extends SmartAgentBase {
 	// values used in tactics analysis, adjusted via learning weights
 		float recklessness;
 		float minRecklessness, maxRecklessness;
+		float oldMinRecklessness, oldMaxRecklessness;
 		float recklessFortifyThreshold;
 		float recklessCardThreshold;
 	// fine-tuning weights that can be adjusted via the rule set
@@ -39,6 +40,7 @@ public class Learner extends SmartAgentBase {
 		private String fileName;
 		private String rulesPath = Board.getAgentPath() + "rules.txt";
 		private String reckPath = Board.getAgentPath() + "reck.txt";
+		private String winlossPath = Board.getAgentPath() + "WinLoss.txt";
 		private float explorationThreshold = 0.15f; // probability to explore instead of exploit (0.0 - 1.0 range)
 		private String[] lettersArray = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N"};
 		private Boolean didSetup = false;
@@ -70,7 +72,7 @@ public class Learner extends SmartAgentBase {
 	
 	public void placeArmies( int numberOfArmies )
 	{
-		makeLogEntry("------DEPLOY PHASE------\n");
+		//makeLogEntry("------DEPLOY PHASE------\n");
 
 		Country mostValuableCountry = null;
 		float largestStrategicValue=-100000;
@@ -116,7 +118,7 @@ public class Learner extends SmartAgentBase {
 	
 public void attackPhase()
 {
-	makeLogEntry("------ATTACK PHASE------\n");
+	//makeLogEntry("------ATTACK PHASE------\n");
 //We choose a target and attack, then evaluate if we should continue attacking
 int countriesConquered=0;
 boolean stillAttacking=true;
@@ -134,7 +136,7 @@ while(stillAttacking)
 	float lowestStrategicValue=1000000;
 	while (armies.hasNext()) 
 	{
-		makeLogEntry("------------------------------------iteration-----------------------------------------\n");
+		//makeLogEntry("------------------------------------iteration-----------------------------------------\n");
 		Country us = armies.next();
 		int[] possibleTargets=us.getHostileAdjoiningCodeList();
 		for(int i=0; i<possibleTargets.length; i++)
@@ -147,7 +149,7 @@ while(stillAttacking)
 				lowestStrategicValue=strategicValue;
 				attacker=us;
 				target=countries[possibleTargets[i]];
-				makeLogEntry("Target: "+target.getName()+"\n");
+				//makeLogEntry("Target: "+target.getName()+"\n");
 			}
 		}
 	}
@@ -163,7 +165,7 @@ while(stillAttacking)
 	}
 	else
 	{
-		makeLogEntry("\n NO TARGET FOUND \n\n");
+		//makeLogEntry("\n NO TARGET FOUND \n\n");
 		stillAttacking=false;
 	}
 }
@@ -183,7 +185,7 @@ return countries[cca].getArmies()-1;
 public void fortifyPhase()
 {	
 	
-	makeLogEntry("------FORTIFY PHASE------\n");
+	//makeLogEntry("------FORTIFY PHASE------\n");
 
 	// Cycle through all the countries and find countries that we could move from:
 	// if country has no surrounding enemies, move armies toward country with most strategic value
@@ -237,7 +239,7 @@ public void fortifyPhase()
 			board.fortifyArmies(us.getMoveableArmies(), us, fortifyTarget);
 		}
 	}
-	makeLogEntry("Turn "+board.getTurnCount()+" complete\n\n");
+	//makeLogEntry("Turn "+board.getTurnCount()+" complete\n\n");
 }
 
 
@@ -375,6 +377,8 @@ public void fortifyPhase()
 		int turnsTaken = board.getTurnCount(); // check that these two methods do what we actually need
 		int bonus = board.getNextCardSetValue();
 		result = advantage + turnsTaken + bonus;
+		//makeLogEntry("Recklessness calculated as: "+advantage+"+"+turnsTaken+"+"+bonus+"=" + result + "\n");
+
 		// update min and max recklessness if we've expanded the range
 		if (result < minRecklessness) {
 			minRecklessness = result;
@@ -382,7 +386,7 @@ public void fortifyPhase()
 		if (result > maxRecklessness) {
 			maxRecklessness = result;
 		}
-		makeLogEntry("Recklessness calculated as: " + result + "\n");
+		//makeLogEntry("Recklessness calculated as: " + result + "\n");
 		return result;
 	}
 	private float calculateImportance(Country country, float[] weights) 
@@ -485,8 +489,8 @@ public void fortifyPhase()
 				maxThreat=threat;
 			}
 		}
-		makeLogEntry("Advantage calculated as: "+weights[9]+"*"+stability+"-" +weights[10]+"*" +maxThreat+ "\n");
 		float result=weights[9]*stability-weights[10]*maxThreat;
+		makeLogEntry("Advantage calculated as: "+weights[9]+"*"+stability+"-" +weights[10]+"*" +maxThreat+ "="+result+"\n");
 		//makeLogEntry("Advantage calculated as: " + result + "\n");
 		//makeLogEntry("advantage calculated as: " + result + ".\n");
 		return result;
@@ -559,6 +563,7 @@ public void fortifyPhase()
 	{ 
 		// run the "win" fitness function to adjust rules
 		// store the new weight values
+		recordWinLoss(true);
 		String answer = "The machines are learning";
 		float gameResult = winFitnessFunction();
 		adjustRules(gameResult);
@@ -569,6 +574,7 @@ public void fortifyPhase()
 	{
 	if ("youLose".equals(message))
 		{
+			recordWinLoss(false);
 			float gameResult = lossFitnessFunction();
 			adjustRules(gameResult);
 		}
@@ -801,13 +807,41 @@ public void fortifyPhase()
 				}
 		return result;
 	}
-		
 	
+	public void recordWinLoss(boolean win)
+	{
+		String winloss;
+		if(win)
+		{
+			winloss="WIN\n";
+		}else{
+			winloss="LOSS\n";
+		}
+		File winlossFile = new File(winlossPath);
+		FileWriter writer;
+		try {
+			writer = new FileWriter(winlossFile, true);
+			writer.write(winloss);
+			writer.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 	public void adjustRules(float adjustment) {
 		// update min and max recklessness in case they've changed this round
 		String newReck = "";
-		String newMin = String.valueOf(minRecklessness);
-		String newMax = String.valueOf(maxRecklessness);
+		String newMin;
+		String newMax;
+		if(!Float.isInfinite(minRecklessness)&&!Float.isInfinite(maxRecklessness))
+		{
+			newMin=String.valueOf((minRecklessness+oldMinRecklessness)/2);
+			newMax=String.valueOf((maxRecklessness+oldMaxRecklessness)/2);
+		}
+		else{
+			newMin=String.valueOf(oldMinRecklessness);
+			newMax=String.valueOf(oldMaxRecklessness);
+		}
 		newReck = newReck + newMin + "_" + newMax;
 		File reckFile = new File(reckPath);
 		FileWriter writer;
@@ -891,6 +925,8 @@ public void fortifyPhase()
 		float[] minMax = getReckValues();
 		minRecklessness = minMax[0];
 		maxRecklessness = minMax[1];
+		oldMaxRecklessness=maxRecklessness;
+		oldMinRecklessness=minRecklessness;
 		String[] threeArrays = getRawRulesInput();
 		deployRules = getDeployRules(threeArrays[0]);
 		deployWeights = getDeployWeights(deployRules);
